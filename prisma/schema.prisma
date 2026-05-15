@@ -1,0 +1,201 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── USER (NextAuth Google sign-in) ──────────────────────────
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String?
+  image         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  sessions      Session[]
+  oauthAccounts OAuthAccount[]
+  mailAccounts  MailAccount[]
+}
+
+model OAuthAccount {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── MAIL ACCOUNT ─────────────────────────────────────────────
+model MailAccount {
+  id             String           @id @default(cuid())
+  userId         String
+
+  type           MailProviderType
+  emailAddress   String
+  displayName    String?
+
+  encryptedCreds String           @db.Text
+
+  imapHost       String?
+  imapPort       Int?
+  smtpHost       String?
+  smtpPort       Int?
+
+  lastSyncAt     DateTime?
+  syncCursor     String?
+  syncStatus     SyncStatus       @default(IDLE)
+  syncError      String?          @db.Text
+
+  connectedAt    DateTime         @default(now())
+  disconnectedAt DateTime?
+
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages       Message[]
+  labels         Label[]
+
+  @@unique([userId, emailAddress])
+  @@index([userId])
+}
+
+enum MailProviderType {
+  GMAIL
+  IMAP
+  GRAPH
+  MOCK
+}
+
+enum SyncStatus {
+  IDLE
+  SYNCING
+  ERROR
+}
+
+// ─── MESSAGE ──────────────────────────────────────────────────
+model Message {
+  id                String        @id @default(cuid())
+  mailAccountId     String
+
+  providerMessageId String
+  threadId          String
+
+  fromAddress       String
+  fromName          String?
+  toAddresses       String[]
+  ccAddresses       String[]
+  bccAddresses      String[]
+  subject           String?       @db.Text
+
+  bodyText          String?       @db.Text
+  bodyHtml          String?       @db.Text
+  snippet           String?       @db.VarChar(500)
+
+  sentAt            DateTime
+  receivedAt        DateTime      @default(now())
+
+  isRead            Boolean       @default(false)
+  isStarred         Boolean       @default(false)
+  folder            MessageFolder @default(INBOX)
+
+  providerMeta      Json?
+
+  aiPriority        AIPriority?
+  aiPriorityReason  String?       @db.Text
+  aiPrioritizedAt   DateTime?
+
+  mailAccount       MailAccount   @relation(fields: [mailAccountId], references: [id], onDelete: Cascade)
+  threadSummary     ThreadSummary? @relation(fields: [threadId, mailAccountId], references: [threadId, mailAccountId])
+  labels            MessageLabel[]
+
+  @@unique([mailAccountId, providerMessageId])
+  @@index([mailAccountId, folder, sentAt(sort: Desc)])
+  @@index([threadId])
+}
+
+enum MessageFolder {
+  INBOX
+  SENT
+  ARCHIVE
+  TRASH
+  DRAFT
+  SPAM
+}
+
+enum AIPriority {
+  URGENT
+  NORMAL
+  LOW
+  NOISE
+}
+
+// ─── THREAD SUMMARY (AI cache) ────────────────────────────────
+model ThreadSummary {
+  threadId            String
+  mailAccountId       String
+  lastMessageAt       DateTime
+  summaryText         String    @db.Text
+  generatedByProvider String
+  generatedAt         DateTime  @default(now())
+
+  messages            Message[]
+
+  @@id([threadId, mailAccountId])
+  @@index([mailAccountId])
+}
+
+// ─── LABEL ────────────────────────────────────────────────────
+model Label {
+  id              String         @id @default(cuid())
+  mailAccountId   String
+
+  providerLabelId String
+  name            String
+  color           String?
+  isSystem        Boolean        @default(false)
+
+  mailAccount     MailAccount    @relation(fields: [mailAccountId], references: [id], onDelete: Cascade)
+  messages        MessageLabel[]
+
+  @@unique([mailAccountId, providerLabelId])
+  @@index([mailAccountId])
+}
+
+model MessageLabel {
+  messageId String
+  labelId   String
+
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  label     Label   @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, labelId])
+}
