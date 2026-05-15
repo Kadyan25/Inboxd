@@ -70,10 +70,18 @@ export function ThreadSheet({
   const [showLabels, setShowLabels] = useState(false)
   const [labels, setLabels] = useState<NormalizedLabel[]>([])
   const [labelsLoading, setLabelsLoading] = useState(false)
+  const [summary, setSummary] = useState<string | null>(null)
+  const [keyPoints, setKeyPoints] = useState<string[]>([])
+  const [summaryLoading, setSummaryLoading] = useState(true)
+  const [keyPointsOpen, setKeyPointsOpen] = useState(false)
 
   useEffect(() => {
     async function load() {
       setLoading(true)
+      setSummaryLoading(true)
+      setSummary(null)
+      setKeyPoints([])
+
       try {
         const res = await fetch(
           `/api/messages/thread?threadId=${encodeURIComponent(threadId)}&mailAccountId=${mailAccountId}`
@@ -84,6 +92,24 @@ export function ThreadSheet({
         // leave empty
       } finally {
         setLoading(false)
+      }
+
+      // Fire summarize in parallel — doesn't block message rendering
+      try {
+        const res = await fetch("/api/ai/summarize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ threadId, mailAccountId }),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setSummary(data.summary ?? null)
+          setKeyPoints(data.keyPoints ?? [])
+        }
+      } catch {
+        // summary unavailable — silent fail
+      } finally {
+        setSummaryLoading(false)
       }
     }
     load()
@@ -143,6 +169,42 @@ export function ThreadSheet({
               </p>
             )}
           </SheetHeader>
+
+          {/* AI Summary panel */}
+          <div className="border-b border-border bg-muted/30 px-4 py-3">
+            {summaryLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-4/5" />
+              </div>
+            ) : summary ? (
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  AI Summary
+                </p>
+                <p className="text-sm leading-relaxed text-foreground">{summary}</p>
+                {keyPoints.length > 0 && (
+                  <button
+                    className="mt-1 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => setKeyPointsOpen((v) => !v)}
+                  >
+                    <span>{keyPointsOpen ? "▾" : "▸"}</span>
+                    Why this matters
+                  </button>
+                )}
+                {keyPointsOpen && (
+                  <ul className="mt-1 space-y-0.5 pl-3">
+                    {keyPoints.map((pt, i) => (
+                      <li key={i} className="text-xs text-muted-foreground before:mr-1.5 before:content-['•']">
+                        {pt}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : null}
+          </div>
 
           <div className="space-y-0 pb-32">
             {loading ? (

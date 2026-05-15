@@ -164,6 +164,7 @@ model ThreadSummary {
   mailAccountId       String
   lastMessageAt       DateTime
   summaryText         String    @db.Text
+  keyPointsJson       Json      @default("[]")
   generatedByProvider String
   generatedAt         DateTime  @default(now())
 
