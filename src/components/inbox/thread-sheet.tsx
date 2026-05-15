@@ -21,59 +21,63 @@ interface ThreadMessage {
   folder: string
 }
 
+export interface ThreadActionData {
+  mailAccountId: string
+  threadId: string
+  fromAddress: string
+  fromName: string | null
+  subject: string | null
+  lastBody: string | null
+  sentAt: string
+  providerMessageId: string
+}
+
 interface ThreadSheetProps {
   threadId: string
+  mailAccountId: string
   onClose: () => void
-  onReply?: (threadId: string, mailAccountId: string) => void
+  onReply?: (data: ThreadActionData) => void
+  onForward?: (data: ThreadActionData) => void
   onArchive?: (mailAccountId: string, providerMessageId: string) => void
 }
 
-export function ThreadSheet({ threadId, onClose, onReply, onArchive }: ThreadSheetProps) {
+export function ThreadSheet({ threadId, mailAccountId, onClose, onReply, onForward, onArchive }: ThreadSheetProps) {
   const [messages, setMessages] = useState<ThreadMessage[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Find a mailAccountId from the first message — we need it for the API call
-    // Since threadId may span a single account, we fetch from all accounts by trying each
     async function load() {
       setLoading(true)
       try {
-        // First get the message list to find the mailAccountId
-        const listRes = await fetch(`/api/messages?folder=INBOX&limit=100`)
-        const listData = await listRes.json()
-        const match = listData.messages?.find((m: { threadId: string; mailAccountId: string }) => m.threadId === threadId)
-        if (!match) {
-          // Try other folders
-          for (const folder of ["SENT", "ARCHIVE", "TRASH"]) {
-            const r = await fetch(`/api/messages?folder=${folder}&limit=100`)
-            const d = await r.json()
-            const m = d.messages?.find((x: { threadId: string; mailAccountId: string }) => x.threadId === threadId)
-            if (m) {
-              await loadThread(m.mailAccountId)
-              return
-            }
-          }
-        } else {
-          await loadThread(match.mailAccountId)
-        }
+        const res = await fetch(
+          `/api/messages/thread?threadId=${encodeURIComponent(threadId)}&mailAccountId=${mailAccountId}`
+        )
+        const data = await res.json()
+        setMessages(data.messages ?? [])
       } catch {
+        // leave empty
+      } finally {
         setLoading(false)
       }
     }
-
-    async function loadThread(mailAccountId: string) {
-      const res = await fetch(`/api/messages/thread?threadId=${encodeURIComponent(threadId)}&mailAccountId=${mailAccountId}`)
-      const data = await res.json()
-      setMessages(data.messages ?? [])
-      setLoading(false)
-    }
-
     load()
-  }, [threadId])
+  }, [threadId, mailAccountId])
 
   const subject = messages[0]?.subject ?? "(no subject)"
-  const mailAccountId = messages[0]?.mailAccountId
   const lastMessage = messages[messages.length - 1]
+
+  function buildActionData(): ThreadActionData {
+    return {
+      mailAccountId,
+      threadId,
+      fromAddress: lastMessage.fromAddress,
+      fromName: lastMessage.fromName,
+      subject: lastMessage.subject,
+      lastBody: lastMessage.bodyText,
+      sentAt: lastMessage.sentAt,
+      providerMessageId: lastMessage.providerMessageId,
+    }
+  }
 
   return (
     <Sheet open onOpenChange={(open) => !open && onClose()}>
@@ -83,7 +87,9 @@ export function ThreadSheet({ threadId, onClose, onReply, onArchive }: ThreadShe
             {loading ? <Skeleton className="h-5 w-48" /> : subject}
           </SheetTitle>
           {!loading && (
-            <p className="text-xs text-muted-foreground">{messages.length} message{messages.length !== 1 ? "s" : ""}</p>
+            <p className="text-xs text-muted-foreground">
+              {messages.length} message{messages.length !== 1 ? "s" : ""}
+            </p>
           )}
         </SheetHeader>
 
@@ -105,20 +111,18 @@ export function ThreadSheet({ threadId, onClose, onReply, onArchive }: ThreadShe
           )}
         </div>
 
-        {/* Action bar */}
         {!loading && lastMessage && (
           <div className="fixed bottom-0 left-0 right-0 flex gap-2 border-t border-border bg-background px-4 py-3 pb-safe">
-            <Button
-              variant="default"
-              className="flex-1"
-              onClick={() => onReply?.(threadId, mailAccountId!)}
-            >
+            <Button variant="default" className="flex-1" onClick={() => onReply?.(buildActionData())}>
               Reply
+            </Button>
+            <Button variant="outline" className="flex-1" onClick={() => onForward?.(buildActionData())}>
+              Forward
             </Button>
             <Button
               variant="outline"
               onClick={() => {
-                onArchive?.(mailAccountId!, lastMessage.providerMessageId)
+                onArchive?.(mailAccountId, lastMessage.providerMessageId)
                 onClose()
               }}
             >
@@ -153,9 +157,7 @@ function MessageBubble({ message, defaultOpen }: { message: ThreadMessage; defau
               {sentAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
             </span>
           </div>
-          {!open && (
-            <p className="truncate text-xs text-muted-foreground">{message.snippet}</p>
-          )}
+          {!open && <p className="truncate text-xs text-muted-foreground">{message.snippet}</p>}
         </div>
       </button>
 
