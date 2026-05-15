@@ -171,6 +171,12 @@ export function InboxClient() {
     setCompose({ mode: "forward", mailAccountId: data.mailAccountId, prefill: buildForwardPrefill(data) })
   }, [])
 
+  const handleDraftReply = useCallback((data: ThreadActionData, bodyText: string) => {
+    setActiveThread(null)
+    const prefill = buildReplyPrefill(data)
+    setCompose({ mode: "reply", mailAccountId: data.mailAccountId, prefill: { ...prefill, body: bodyText } })
+  }, [])
+
   const [priorityFilter, setPriorityFilter] = useState<string | null>(null)
 
   const baseMessages = searchOpen && searchQuery ? searchResults : messages
@@ -297,6 +303,7 @@ export function InboxClient() {
           onClose={() => setActiveThread(null)}
           onReply={handleReply}
           onForward={handleForward}
+          onDraftReply={handleDraftReply}
           onArchive={(data) => archiveWithUndo(data.messageId)}
           onTrash={(data) => trashWithUndo(data.messageId)}
         />

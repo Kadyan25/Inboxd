@@ -39,6 +39,11 @@ export interface ThreadActionData {
   messageId: string
 }
 
+interface DraftReply {
+  label: string
+  bodyText: string
+}
+
 interface ThreadSheetProps {
   threadId: string
   mailAccountId: string
@@ -47,6 +52,7 @@ interface ThreadSheetProps {
   onForward?: (data: ThreadActionData) => void
   onArchive?: (data: ThreadActionData) => void
   onTrash?: (data: ThreadActionData) => void
+  onDraftReply?: (data: ThreadActionData, bodyText: string) => void
 }
 
 interface NormalizedLabel {
@@ -64,6 +70,7 @@ export function ThreadSheet({
   onForward,
   onArchive,
   onTrash,
+  onDraftReply,
 }: ThreadSheetProps) {
   const [messages, setMessages] = useState<ThreadMessage[]>([])
   const [loading, setLoading] = useState(true)
@@ -74,6 +81,9 @@ export function ThreadSheet({
   const [keyPoints, setKeyPoints] = useState<string[]>([])
   const [summaryLoading, setSummaryLoading] = useState(true)
   const [keyPointsOpen, setKeyPointsOpen] = useState(false)
+  const [showDrafts, setShowDrafts] = useState(false)
+  const [drafts, setDrafts] = useState<DraftReply[]>([])
+  const [draftsLoading, setDraftsLoading] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -136,6 +146,25 @@ export function ThreadSheet({
       body: JSON.stringify({ messageId: lastMessage.id, labelId, action: "apply" }),
     })
     setShowLabels(false)
+  }
+
+  async function openDrafts() {
+    setShowDrafts(true)
+    if (drafts.length > 0) return
+    setDraftsLoading(true)
+    try {
+      const res = await fetch("/api/ai/draft-replies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ threadId, mailAccountId }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setDrafts(data.drafts ?? [])
+      }
+    } finally {
+      setDraftsLoading(false)
+    }
   }
 
   const subject = messages[0]?.subject ?? "(no subject)"
@@ -229,6 +258,9 @@ export function ThreadSheet({
               <Button variant="default" className="flex-1" onClick={() => onReply?.(buildActionData())}>
                 Reply
               </Button>
+              <Button variant="outline" className="flex-1" onClick={openDrafts}>
+                Draft
+              </Button>
               <Button variant="outline" className="flex-1" onClick={() => onForward?.(buildActionData())}>
                 Forward
               </Button>
@@ -261,6 +293,44 @@ export function ThreadSheet({
               </DropdownMenu>
             </div>
           )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Draft reply picker */}
+      <Sheet open={showDrafts} onOpenChange={(open) => !open && setShowDrafts(false)}>
+        <SheetContent side="bottom" className="max-h-[70svh] p-0">
+          <SheetHeader className="border-b border-border px-4 py-3">
+            <SheetTitle className="text-left text-base">AI draft replies</SheetTitle>
+          </SheetHeader>
+          <div className="overflow-y-auto">
+            {draftsLoading ? (
+              <div className="space-y-3 p-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="space-y-2 rounded-lg border border-border p-3">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-full" />
+                    <Skeleton className="h-3 w-4/5" />
+                  </div>
+                ))}
+              </div>
+            ) : drafts.length === 0 ? (
+              <p className="p-4 text-sm text-muted-foreground">Could not generate drafts.</p>
+            ) : (
+              drafts.map((draft, i) => (
+                <button
+                  key={i}
+                  className="flex w-full flex-col gap-1 border-b border-border px-4 py-3 text-left hover:bg-muted/50"
+                  onClick={() => {
+                    setShowDrafts(false)
+                    if (lastMessage) onDraftReply?.(buildActionData(), draft.bodyText)
+                  }}
+                >
+                  <span className="text-xs font-semibold text-foreground">{draft.label}</span>
+                  <span className="line-clamp-2 text-xs text-muted-foreground">{draft.bodyText}</span>
+                </button>
+              ))
+            )}
+          </div>
         </SheetContent>
       </Sheet>
 
