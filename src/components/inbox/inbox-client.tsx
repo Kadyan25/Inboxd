@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
 import { useMessages } from "@/lib/hooks/use-messages"
 import { MessageRow } from "./message-row"
 import { MessageListSkeleton } from "./message-skeleton"
@@ -170,7 +171,12 @@ export function InboxClient() {
     setCompose({ mode: "forward", mailAccountId: data.mailAccountId, prefill: buildForwardPrefill(data) })
   }, [])
 
-  const displayMessages = searchOpen && searchQuery ? searchResults : messages
+  const [priorityFilter, setPriorityFilter] = useState<string | null>(null)
+
+  const baseMessages = searchOpen && searchQuery ? searchResults : messages
+  const displayMessages = priorityFilter
+    ? baseMessages.filter((m) => m.aiPriority === priorityFilter)
+    : baseMessages
   const defaultMailAccountId = messages[0]?.mailAccountId ?? ""
 
   return (
@@ -206,6 +212,26 @@ export function InboxClient() {
           </>
         )}
       </header>
+
+      {/* Priority filter bar */}
+      {!searchOpen && (
+        <div className="flex gap-1.5 overflow-x-auto border-b border-border px-4 py-2 scrollbar-none">
+          {[null, "URGENT", "NORMAL", "LOW", "NOISE"].map((p) => (
+            <button
+              key={p ?? "all"}
+              onClick={() => setPriorityFilter(p)}
+              className={cn(
+                "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                priorityFilter === p
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-background text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {p ?? "All"}
+            </button>
+          ))}
+        </div>
+      )}
 
       {pullDelta > 0 && (
         <div

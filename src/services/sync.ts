@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { getProvider, type ProviderAccount } from "@/providers"
+import { getAIProvider } from "@/services/ai"
 import type { NormalizedMessage } from "@/providers/types"
 import type { Prisma } from "@prisma/client"
 
@@ -27,6 +28,11 @@ export async function syncAccount(account: ProviderAccount): Promise<SyncOutcome
     if (result.newMessages.length > 0 || result.updatedMessages.length > 0) {
       const toUpsert = [...result.newMessages, ...result.updatedMessages]
       await Promise.all(toUpsert.map((msg) => upsertMessage(msg, account.id)))
+    }
+
+    // Prioritize newly synced messages (skip if already prioritized)
+    if (result.newMessages.length > 0) {
+      await prioritizeNewMessages(result.newMessages, account.id)
     }
 
     // Soft-delete removed messages (mark as TRASH)
@@ -97,4 +103,41 @@ async function upsertMessage(msg: NormalizedMessage, mailAccountId: string): Pro
       providerMeta: msg.providerMeta as Prisma.InputJsonValue,
     },
   })
+}
+
+async function prioritizeNewMessages(messages: NormalizedMessage[], mailAccountId: string): Promise<void> {
+  // Only prioritize messages that don't already have a priority
+  const providerIds = messages.map((m) => m.providerMessageId)
+  const unprioritized = await prisma.message.findMany({
+    where: { mailAccountId, providerMessageId: { in: providerIds }, aiPriority: null },
+    select: { providerMessageId: true, fromAddress: true, fromName: true, subject: true, snippet: true, sentAt: true },
+  })
+  if (unprioritized.length === 0) return
+
+  const ai = getAIProvider()
+  // Batch in chunks of 20
+  for (let i = 0; i < unprioritized.length; i += 20) {
+    const chunk = unprioritized.slice(i, i + 20)
+    try {
+      const result = await ai.prioritize({
+        messages: chunk.map((m) => ({
+          providerMessageId: m.providerMessageId,
+          from: { email: m.fromAddress, name: m.fromName ?? undefined },
+          subject: m.subject,
+          snippet: m.snippet ?? "",
+          sentAt: m.sentAt,
+        })),
+      })
+      await Promise.all(
+        result.results.map((r) =>
+          prisma.message.updateMany({
+            where: { mailAccountId, providerMessageId: r.providerMessageId },
+            data: { aiPriority: r.priority, aiPriorityReason: r.reason, aiPrioritizedAt: new Date() },
+          })
+        )
+      )
+    } catch {
+      // Non-blocking — prioritization failure does not fail sync
+    }
+  }
 }
