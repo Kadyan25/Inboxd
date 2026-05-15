@@ -1,6 +1,7 @@
 "use client"
 
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { toast } from "sonner"
 import { useMessages } from "@/lib/hooks/use-messages"
 import { MessageRow } from "./message-row"
 import { MessageListSkeleton } from "./message-skeleton"
@@ -46,15 +47,95 @@ function buildForwardPrefill(data: ThreadActionData): ComposePrefill {
 }
 
 export function InboxClient() {
-  const { messages, loading, refreshing, hasMore, folder, setFolder, loadMore, refresh, optimisticArchive } =
+  const { messages, loading, refreshing, hasMore, folder, setFolder, loadMore, refresh, optimisticArchive, optimisticTrash } =
     useMessages()
 
   const [activeThread, setActiveThread] = useState<ActiveThread | null>(null)
   const [compose, setCompose] = useState<ComposeState | null>(null)
   const [pullDelta, setPullDelta] = useState(0)
+
+  // Search state
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchResults, setSearchResults] = useState<MessageSummary[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const isPulling = useRef(false)
   const startY = useRef(0)
   const listRef = useRef<HTMLDivElement>(null)
+
+  // Debounced search fetch
+  useEffect(() => {
+    if (!searchOpen || !searchQuery.trim()) {
+      setSearchResults([])
+      return
+    }
+    if (searchDebounce.current) clearTimeout(searchDebounce.current)
+    searchDebounce.current = setTimeout(async () => {
+      setSearchLoading(true)
+      try {
+        const res = await fetch(`/api/messages/search?q=${encodeURIComponent(searchQuery.trim())}`)
+        const data = await res.json()
+        setSearchResults(data.messages ?? [])
+      } finally {
+        setSearchLoading(false)
+      }
+    }, 300)
+    return () => {
+      if (searchDebounce.current) clearTimeout(searchDebounce.current)
+    }
+  }, [searchQuery, searchOpen])
+
+  function openSearch() {
+    setSearchOpen(true)
+    setTimeout(() => searchInputRef.current?.focus(), 50)
+  }
+
+  function closeSearch() {
+    setSearchOpen(false)
+    setSearchQuery("")
+    setSearchResults([])
+  }
+
+  const archiveWithUndo = useCallback(
+    (messageId: string) => {
+      optimisticArchive(messageId)
+      toast("Archived", {
+        action: {
+          label: "Undo",
+          onClick: () => {
+            fetch("/api/messages/restore", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ messageId }),
+            }).then(() => refresh())
+          },
+        },
+      })
+    },
+    [optimisticArchive, refresh]
+  )
+
+  const trashWithUndo = useCallback(
+    (messageId: string) => {
+      optimisticTrash(messageId)
+      toast("Moved to Trash", {
+        action: {
+          label: "Undo",
+          onClick: () => {
+            fetch("/api/messages/restore", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ messageId }),
+            }).then(() => refresh())
+          },
+        },
+      })
+    },
+    [optimisticTrash, refresh]
+  )
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     if (listRef.current?.scrollTop === 0) {
@@ -89,17 +170,40 @@ export function InboxClient() {
     setCompose({ mode: "forward", mailAccountId: data.mailAccountId, prefill: buildForwardPrefill(data) })
   }, [])
 
-  // Use first message's mailAccountId as default for compose FAB
+  const displayMessages = searchOpen && searchQuery ? searchResults : messages
   const defaultMailAccountId = messages[0]?.mailAccountId ?? ""
 
   return (
     <div className="flex h-svh flex-col bg-background">
-      <header className="flex h-14 shrink-0 items-center border-b border-border px-4">
-        <h1 className="text-lg font-semibold capitalize">
-          {folder === "INBOX" ? "Inbox" : folder.charAt(0) + folder.slice(1).toLowerCase()}
-        </h1>
-        {refreshing && (
-          <span className="ml-2 text-xs text-muted-foreground animate-pulse">Refreshing…</span>
+      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
+        {searchOpen ? (
+          <>
+            <input
+              ref={searchInputRef}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search messages…"
+              className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            />
+            <button
+              onClick={closeSearch}
+              className="shrink-0 text-sm text-muted-foreground hover:text-foreground"
+            >
+              Cancel
+            </button>
+          </>
+        ) : (
+          <>
+            <h1 className="flex-1 text-lg font-semibold capitalize">
+              {folder === "INBOX" ? "Inbox" : folder.charAt(0) + folder.slice(1).toLowerCase()}
+            </h1>
+            {refreshing && (
+              <span className="text-xs text-muted-foreground animate-pulse">Refreshing…</span>
+            )}
+            <button onClick={openSearch} className="text-lg text-muted-foreground hover:text-foreground" aria-label="Search">
+              🔍
+            </button>
+          </>
         )}
       </header>
 
@@ -119,23 +223,23 @@ export function InboxClient() {
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        {loading ? (
+        {loading || (searchOpen && searchLoading) ? (
           <MessageListSkeleton />
-        ) : messages.length === 0 ? (
+        ) : displayMessages.length === 0 ? (
           <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-            No messages
+            {searchOpen && searchQuery ? "No results" : "No messages"}
           </div>
         ) : (
           <>
-            {messages.map((msg) => (
+            {displayMessages.map((msg) => (
               <MessageRow
                 key={msg.id}
                 message={msg}
                 onClick={() => openThread(msg)}
-                onArchive={() => optimisticArchive(msg.id)}
+                onArchive={() => archiveWithUndo(msg.id)}
               />
             ))}
-            {hasMore && (
+            {!searchOpen && hasMore && (
               <button
                 className="w-full py-4 text-sm text-muted-foreground hover:text-foreground"
                 onClick={loadMore}
@@ -148,7 +252,7 @@ export function InboxClient() {
       </div>
 
       {/* Compose FAB */}
-      {defaultMailAccountId && (
+      {defaultMailAccountId && !searchOpen && (
         <button
           onClick={() => setCompose({ mode: "compose", mailAccountId: defaultMailAccountId })}
           className="fixed bottom-20 right-4 z-10 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg text-2xl"
@@ -167,9 +271,8 @@ export function InboxClient() {
           onClose={() => setActiveThread(null)}
           onReply={handleReply}
           onForward={handleForward}
-          onArchive={(accId, msgId) => {
-            optimisticArchive(messages.find((m) => m.providerMessageId === msgId)?.id ?? msgId)
-          }}
+          onArchive={(data) => archiveWithUndo(data.messageId)}
+          onTrash={(data) => trashWithUndo(data.messageId)}
         />
       )}
 
