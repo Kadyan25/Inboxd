@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { signOut } from "next-auth/react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 
@@ -157,6 +158,15 @@ export function AccountsSheet({ accounts, onClose }: AccountsSheetProps) {
                 ))}
               </ul>
             )}
+
+            <div className="mb-6 border-t border-border pt-4">
+              <button
+                onClick={() => signOut({ callbackUrl: "/sign-in" })}
+                className="text-sm text-destructive hover:underline"
+              >
+                Sign out
+              </button>
+            </div>
 
             <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Add account</p>
             <div className="space-y-2">
