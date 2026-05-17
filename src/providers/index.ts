@@ -1,5 +1,6 @@
 import type { EmailProvider } from "@/providers/types"
 import { MockProvider } from "@/providers/mock"
+import { GmailProvider } from "@/providers/gmail"
 
 export interface ProviderAccount {
   id: string
@@ -21,9 +22,11 @@ export function getProvider(account: ProviderAccount): EmailProvider {
       // Graph stub delegates to mock (v1)
       return new MockProvider(account.id)
     case "GMAIL":
+      if (!account.encryptedCreds) throw new Error("Gmail account missing credentials")
+      return new GmailProvider(account.id, account.encryptedCreds)
     case "IMAP":
-      // Implemented in Phase 8a/8b
-      throw new Error(`Provider ${account.type} not yet implemented`)
+      // Phase 8b
+      throw new Error("IMAP provider not yet implemented")
     default: {
       const _exhaustive: never = account.type
       throw new Error(`Unknown provider type: ${_exhaustive}`)
