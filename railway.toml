@@ -1,0 +1,29 @@
+[build]
+builder = "nixpacks"
+buildCommand = "npx prisma generate && npm run build && cp -r public .next/standalone/public && cp -r .next/static .next/standalone/.next/static"
+
+[deploy]
+startCommand = "node .next/standalone/server.js"
+healthcheckPath = "/"
+healthcheckTimeout = 100
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10
+
+# ─── Required environment variables ──────────────────────────────────────────
+# Set these in Railway → your service → Variables:
+#
+# DATABASE_URL          — auto-set if you add a Railway Postgres service
+# NEXTAUTH_URL          — https://<your-app>.up.railway.app
+# NEXTAUTH_SECRET       — openssl rand -base64 32
+# GOOGLE_CLIENT_ID      — Google Cloud Console OAuth client
+# GOOGLE_CLIENT_SECRET  — Google Cloud Console OAuth client
+# ENCRYPTION_KEY        — openssl rand -hex 32
+# AI_PROVIDER           — claude
+# ANTHROPIC_API_KEY     — sk-ant-...
+# AI_DAILY_CALL_LIMIT   — 500
+# MOCK_MODE             — true  (demo default: reviewer sees app without login)
+#
+# Gmail OAuth (optional — without these, Gmail connect is disabled):
+# GMAIL_CLIENT_ID       — (can reuse GOOGLE_CLIENT_ID)
+# GMAIL_CLIENT_SECRET   — (can reuse GOOGLE_CLIENT_SECRET)
+# GMAIL_REDIRECT_URI    — https://<your-app>.up.railway.app/api/auth/callback/google

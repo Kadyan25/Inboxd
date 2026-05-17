@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="80" fill="#0f172a"/>
+  <!-- Envelope body -->
+  <rect x="64" y="160" width="384" height="256" rx="16" fill="#1e293b" stroke="#334155" stroke-width="4"/>
+  <!-- Envelope flap lines -->
+  <polyline points="64,160 256,288 448,160" fill="none" stroke="#94a3b8" stroke-width="12" stroke-linejoin="round"/>
+  <!-- Sparkle (AI indicator) -->
+  <circle cx="384" cy="128" r="36" fill="#6366f1"/>
+  <path d="M384 108 L388 120 L400 124 L388 128 L384 140 L380 128 L368 124 L380 120 Z" fill="white"/>
+</svg>

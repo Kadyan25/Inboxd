@@ -9,6 +9,7 @@ import { MessageListSkeleton } from "./message-skeleton"
 import { BottomNav } from "./bottom-nav"
 import { ThreadSheet, type ThreadActionData } from "./thread-sheet"
 import { ComposeSheet, type ComposePrefill } from "./compose-sheet"
+import { AccountsSheet, type AccountSummary } from "./accounts-sheet"
 import type { MessageSummary } from "@/lib/hooks/use-messages"
 
 const PULL_THRESHOLD = 64
@@ -50,9 +51,10 @@ function buildForwardPrefill(data: ThreadActionData): ComposePrefill {
 interface InboxClientProps {
   accountIds?: string[]
   initialSyncAccountIds?: string[]
+  accounts?: AccountSummary[]
 }
 
-export function InboxClient({ accountIds = [], initialSyncAccountIds = [] }: InboxClientProps) {
+export function InboxClient({ accountIds = [], initialSyncAccountIds = [], accounts = [] }: InboxClientProps) {
   const { messages, loading, refreshing, hasMore, folder, setFolder, loadMore, refresh, optimisticArchive, optimisticTrash } =
     useMessages(undefined, accountIds)
 
@@ -196,6 +198,7 @@ export function InboxClient({ accountIds = [], initialSyncAccountIds = [] }: Inb
     setCompose({ mode: "reply", mailAccountId: data.mailAccountId, prefill: { ...prefill, body: bodyText } })
   }, [])
 
+  const [accountsOpen, setAccountsOpen] = useState(false)
   const [priorityFilter, setPriorityFilter] = useState<string | null>(null)
 
   const baseMessages = searchOpen && searchQuery ? searchResults : messages
@@ -238,6 +241,13 @@ export function InboxClient({ accountIds = [], initialSyncAccountIds = [] }: Inb
             </button>
             <button onClick={openSearch} className="text-lg text-muted-foreground hover:text-foreground" aria-label="Search">
               🔍
+            </button>
+            <button
+              onClick={() => setAccountsOpen(true)}
+              className="text-lg text-muted-foreground hover:text-foreground"
+              aria-label="Accounts"
+            >
+              ⊕
             </button>
           </>
         )}
@@ -340,6 +350,10 @@ export function InboxClient({ accountIds = [], initialSyncAccountIds = [] }: Inb
           prefill={compose.prefill}
           onClose={() => setCompose(null)}
         />
+      )}
+
+      {accountsOpen && (
+        <AccountsSheet accounts={accounts} onClose={() => setAccountsOpen(false)} />
       )}
     </div>
   )
