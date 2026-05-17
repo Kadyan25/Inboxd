@@ -30,9 +30,11 @@ export async function syncAccount(account: ProviderAccount): Promise<SyncOutcome
       await Promise.all(toUpsert.map((msg) => upsertMessage(msg, account.id)))
     }
 
-    // Prioritize newly synced messages (skip if already prioritized)
-    if (result.newMessages.length > 0) {
-      await prioritizeNewMessages(result.newMessages, account.id)
+    // Prioritize any messages that don't have a priority yet (non-fatal)
+    try {
+      await prioritizeUnprocessedMessages(account.id)
+    } catch (err) {
+      console.error("[sync] prioritization error:", err)
     }
 
     // Soft-delete removed messages (mark as TRASH)
@@ -105,19 +107,19 @@ async function upsertMessage(msg: NormalizedMessage, mailAccountId: string): Pro
   })
 }
 
-async function prioritizeNewMessages(messages: NormalizedMessage[], mailAccountId: string): Promise<void> {
-  // Only prioritize messages that don't already have a priority
-  const providerIds = messages.map((m) => m.providerMessageId)
+async function prioritizeUnprocessedMessages(mailAccountId: string): Promise<void> {
   const unprioritized = await prisma.message.findMany({
-    where: { mailAccountId, providerMessageId: { in: providerIds }, aiPriority: null },
+    where: { mailAccountId, aiPriority: null },
     select: { providerMessageId: true, fromAddress: true, fromName: true, subject: true, snippet: true, sentAt: true },
+    orderBy: { sentAt: "desc" },
+    take: 100,
   })
   if (unprioritized.length === 0) return
 
   const ai = getAIProvider()
-  // Batch in chunks of 20
-  for (let i = 0; i < unprioritized.length; i += 20) {
-    const chunk = unprioritized.slice(i, i + 20)
+  // Batch in chunks of 10
+  for (let i = 0; i < unprioritized.length; i += 10) {
+    const chunk = unprioritized.slice(i, i + 10)
     try {
       const result = await ai.prioritize({
         messages: chunk.map((m) => ({
@@ -136,8 +138,8 @@ async function prioritizeNewMessages(messages: NormalizedMessage[], mailAccountI
           })
         )
       )
-    } catch {
-      // Non-blocking — prioritization failure does not fail sync
+    } catch (err) {
+      console.error("[prioritize] failed:", err)
     }
   }
 }

@@ -248,8 +248,8 @@ export class GmailProvider implements EmailProvider {
       `/history?startHistoryId=${lastCursor}&historyTypes=messageAdded,messageDeleted,labelAdded,labelRemoved&maxResults=100`
     )
 
-    // historyId expired — full re-sync
-    if (res.status === 404) return this.syncChanges(null)
+    // historyId expired or invalid — full re-sync
+    if (res.status === 404 || res.status === 400) return this.syncChanges(null)
     if (!res.ok) throw new Error(`Gmail history error: ${res.status}`)
 
     const data = (await res.json()) as {

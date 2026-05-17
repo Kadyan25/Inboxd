@@ -9,19 +9,20 @@ datasource db {
 
 // ─── USER (NextAuth Google sign-in) ──────────────────────────
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  name          String?
-  image         String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id             String         @id @default(cuid())
+  email          String         @unique
+  emailVerified  DateTime?
+  name           String?
+  image          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   sessions      Session[]
-  oauthAccounts OAuthAccount[]
+  accounts      Account[]
   mailAccounts  MailAccount[]
 }
 
-model OAuthAccount {
+model Account {
   id                String  @id @default(cuid())
   userId            String
   type              String
@@ -38,6 +39,7 @@ model OAuthAccount {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@map("OAuthAccount")
 }
 
 model Session {
@@ -134,7 +136,6 @@ model Message {
   aiPrioritizedAt   DateTime?
 
   mailAccount       MailAccount   @relation(fields: [mailAccountId], references: [id], onDelete: Cascade)
-  threadSummary     ThreadSummary? @relation(fields: [threadId, mailAccountId], references: [threadId, mailAccountId])
   labels            MessageLabel[]
 
   @@unique([mailAccountId, providerMessageId])
@@ -167,8 +168,6 @@ model ThreadSummary {
   keyPointsJson       Json      @default("[]")
   generatedByProvider String
   generatedAt         DateTime  @default(now())
-
-  messages            Message[]
 
   @@id([threadId, mailAccountId])
   @@index([mailAccountId])

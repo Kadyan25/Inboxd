@@ -34,7 +34,7 @@ interface UseMessagesResult {
   optimisticTrash: (id: string) => void
 }
 
-export function useMessages(accountId?: string): UseMessagesResult {
+export function useMessages(accountId?: string, syncAccountIds?: string[]): UseMessagesResult {
   const [folder, setFolderState] = useState<Folder>("INBOX")
   const [messages, setMessages] = useState<MessageSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -95,17 +95,20 @@ export function useMessages(accountId?: string): UseMessagesResult {
 
   const refresh = useCallback(async () => {
     setRefreshing(true)
-    // Trigger sync then reload
-    const accounts = accountId ? [accountId] : []
+    const accounts = syncAccountIds && syncAccountIds.length > 0 ? syncAccountIds : accountId ? [accountId] : []
     if (accounts.length > 0) {
-      await fetch("/api/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mailAccountId: accounts[0] }),
-      }).catch(() => {})
+      await Promise.all(
+        accounts.map((id) =>
+          fetch("/api/sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ mailAccountId: id }),
+          }).catch(() => {})
+        )
+      )
     }
     load(true)
-  }, [accountId, load])
+  }, [accountId, syncAccountIds, load])
 
   const loadMore = useCallback(() => {
     if (hasMore && !loading) load(false)

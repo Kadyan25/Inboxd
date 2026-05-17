@@ -47,13 +47,32 @@ function buildForwardPrefill(data: ThreadActionData): ComposePrefill {
   }
 }
 
-export function InboxClient() {
+interface InboxClientProps {
+  accountIds?: string[]
+  initialSyncAccountIds?: string[]
+}
+
+export function InboxClient({ accountIds = [], initialSyncAccountIds = [] }: InboxClientProps) {
   const { messages, loading, refreshing, hasMore, folder, setFolder, loadMore, refresh, optimisticArchive, optimisticTrash } =
-    useMessages()
+    useMessages(undefined, accountIds)
 
   const [activeThread, setActiveThread] = useState<ActiveThread | null>(null)
   const [compose, setCompose] = useState<ComposeState | null>(null)
   const [pullDelta, setPullDelta] = useState(0)
+
+  // Auto-sync accounts that have never been synced (e.g. first sign-in)
+  useEffect(() => {
+    if (initialSyncAccountIds.length === 0) return
+    Promise.all(
+      initialSyncAccountIds.map((id) =>
+        fetch("/api/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mailAccountId: id }),
+        }).catch(() => {})
+      )
+    ).then(() => refresh())
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Search state
   const [searchOpen, setSearchOpen] = useState(false)
@@ -209,9 +228,14 @@ export function InboxClient() {
             <h1 className="flex-1 text-lg font-semibold capitalize">
               {folder === "INBOX" ? "Inbox" : folder.charAt(0) + folder.slice(1).toLowerCase()}
             </h1>
-            {refreshing && (
-              <span className="text-xs text-muted-foreground animate-pulse">Refreshing…</span>
-            )}
+            <button
+              onClick={refresh}
+              disabled={refreshing}
+              className="text-muted-foreground hover:text-foreground disabled:opacity-40"
+              aria-label="Refresh"
+            >
+              {refreshing ? "⏳" : "🔄"}
+            </button>
             <button onClick={openSearch} className="text-lg text-muted-foreground hover:text-foreground" aria-label="Search">
               🔍
             </button>

@@ -23,8 +23,9 @@ export class ClaudeProvider implements AIProvider {
       system,
       messages: [{ role: "user", content: user }],
     })
-    const text = msg.content.find((b) => b.type === "text")?.text ?? ""
-    const json = JSON.parse(text.trim())
+    const raw = msg.content.find((b) => b.type === "text")?.text ?? ""
+    const text = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim()
+    const json = JSON.parse(text)
     return schema.parse(json)
   }
 

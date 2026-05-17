@@ -37,6 +37,7 @@ export async function POST(req: Request) {
   })
 
   if (!outcome.ok) {
+    console.error("[sync route] failed:", outcome.error)
     return NextResponse.json({ error: outcome.error }, { status: 500 })
   }
 
