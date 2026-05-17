@@ -1,9 +1,9 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npx prisma generate && npx prisma db push --accept-data-loss && npm run build && cp -r public .next/standalone/public && cp -r .next/static .next/standalone/.next/static"
+buildCommand = "npm install --legacy-peer-deps --include=optional && npx prisma generate && npm run build && cp -r public .next/standalone/public && cp -r .next/static .next/standalone/.next/static"
 
 [deploy]
-startCommand = "node .next/standalone/server.js"
+startCommand = "npx prisma db push --accept-data-loss && node .next/standalone/server.js"
 healthcheckPath = "/"
 healthcheckTimeout = 100
 restartPolicyType = "on_failure"
