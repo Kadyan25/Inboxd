@@ -11,6 +11,7 @@ export class GraphProvider implements EmailProvider {
   readonly type = "GRAPH" as const
   private mock: MockProvider
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   constructor(_accountId: string) {
     // Always use acc-outlook fixtures so stub shows realistic Outlook-flavored data
     this.mock = new MockProvider("acc-outlook")

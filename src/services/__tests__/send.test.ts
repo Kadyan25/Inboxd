@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { sendSchema } from "@/app/api/messages/send/route"
+import { sendSchema } from "@/lib/schemas/send"
 
 describe("sendSchema", () => {
   const valid = {

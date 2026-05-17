@@ -179,7 +179,7 @@ export class ImapProvider implements EmailProvider {
       await c.connect()
       const lock = await c.getMailboxLock(folderToMailbox(folder))
       try {
-        const total: number = (c.mailbox as any)?.exists ?? 0
+        const total: number = (c.mailbox as { exists?: number } | null)?.exists ?? 0
         if (total === 0) return { messages: [], nextCursor: undefined }
 
         const offset = cursor ? parseInt(cursor, 10) : 0
@@ -415,7 +415,7 @@ export class ImapProvider implements EmailProvider {
       await c.connect()
       const lock = await c.getMailboxLock("INBOX")
       try {
-        const mbInfo = c.mailbox as any
+        const mbInfo = c.mailbox as { uidValidity?: number | bigint; exists?: number } | null
         const uidValidity: number = Number(mbInfo?.uidValidity ?? 0)
         const total: number = mbInfo?.exists ?? 0
 
