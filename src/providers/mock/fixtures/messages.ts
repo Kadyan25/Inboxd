@@ -135,6 +135,30 @@ export const GMAIL_MESSAGES: NormalizedMessage[] = [
     "Don't miss out! Deals expire midnight. Shop now for huge savings on laptops, tablets, and more.",
     h(10), { isRead: true }
   ),
+  msg(
+    "g-11", "thread-g-11",
+    { email: "alex.morgan@gmail.com", name: "Alex" },
+    [{ email: "dev-lead@acme.com", name: "Dev Lead" }],
+    "Re: ENG-1204 migration status",
+    "Hi — auth service migration is 80% done. Should be wrapped up by Thursday. No blockers right now.",
+    h(20), { folder: "SENT", isRead: true }
+  ),
+  msg(
+    "g-12", "thread-g-12",
+    { email: "noreply@linkedin.com", name: "LinkedIn" },
+    [{ email: "alex.morgan@gmail.com" }],
+    "You have 3 new connection requests",
+    "People you may know want to connect with you on LinkedIn.",
+    h(72), { folder: "ARCHIVE", isRead: true }
+  ),
+  msg(
+    "g-13", "thread-g-13",
+    { email: "deals@groupon.com", name: "Groupon" },
+    [{ email: "alex.morgan@gmail.com" }],
+    "Your local deals are waiting — 70% off today",
+    "Limited time deals in your area. Act now before they expire!",
+    h(96), { folder: "TRASH", isRead: true }
+  ),
 ]
 
 // ─── Account 2 (Outlook) messages ─────────────────────────────
@@ -221,6 +245,22 @@ export const OUTLOOK_MESSAGES: NormalizedMessage[] = [
     "You're using 8.5 GB of your 10 GB Dropbox plan. Upgrade to keep syncing without interruptions.",
     h(20)
   ),
+  msg(
+    "o-11", "thread-o-11",
+    { email: "alex.morgan@outlook.com", name: "Alex" },
+    [{ email: "client@startupco.com", name: "Dana Park" }],
+    "Re: Q3 proposal — revised scope",
+    "Dana — attached is the revised scope doc with your feedback incorporated. Let me know if the timeline works on your end.",
+    h(28), { folder: "SENT", isRead: true }
+  ),
+  msg(
+    "o-12", "thread-o-12",
+    { email: "noreply@zoom.us", name: "Zoom" },
+    [{ email: "alex.morgan@outlook.com" }],
+    "Your Zoom meeting recording is ready",
+    "The recording from your meeting 'Sprint Planning - May 12' is now available in your Zoom cloud.",
+    h(80), { folder: "ARCHIVE", isRead: true }
+  ),
 ]
 
 // ─── Account 3 (Yahoo) messages ──────────────────────────────
@@ -306,6 +346,22 @@ export const YAHOO_MESSAGES: NormalizedMessage[] = [
     "Today's top products: AI writing tools, dev utilities",
     "The best new products launched today. Vote for your favorites.",
     h(44), { isRead: true }
+  ),
+  msg(
+    "y-11", "thread-y-11",
+    { email: "amorgan@yahoo.com", name: "Alex" },
+    [{ email: "mom@family.com", name: "Mom" }],
+    "Re: Thanksgiving dinner plans",
+    "Hi Mom! Yes, planning to be there. I'll drive up Wednesday evening. Can't wait — looking forward to seeing everyone!",
+    h(28), { folder: "SENT", isRead: true }
+  ),
+  msg(
+    "y-12", "thread-y-12",
+    { email: "noreply@spam.com", name: "You Won!" },
+    [{ email: "amorgan@yahoo.com" }],
+    "Congratulations — you've been selected!",
+    "You have been randomly selected to receive a special prize. Click here to claim.",
+    h(120), { folder: "TRASH", isRead: true }
   ),
 ]
 

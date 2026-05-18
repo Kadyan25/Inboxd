@@ -30,11 +30,13 @@ export async function syncAccount(account: ProviderAccount): Promise<SyncOutcome
       await Promise.all(toUpsert.map((msg) => upsertMessage(msg, account.id)))
     }
 
-    // Prioritize any messages that don't have a priority yet (non-fatal)
-    try {
-      await prioritizeUnprocessedMessages(account.id)
-    } catch (err) {
-      console.error("[sync] prioritization error:", err)
+    // Prioritize any messages that don't have a priority yet (non-fatal, skip for mock)
+    if (account.type !== "MOCK") {
+      try {
+        await prioritizeUnprocessedMessages(account.id)
+      } catch {
+        // non-fatal — inbox still loads without priorities
+      }
     }
 
     // Soft-delete removed messages (mark as TRASH)
@@ -138,8 +140,8 @@ async function prioritizeUnprocessedMessages(mailAccountId: string): Promise<voi
           })
         )
       )
-    } catch (err) {
-      console.error("[prioritize] failed:", err)
+    } catch {
+      // non-fatal — continue with next batch
     }
   }
 }
